@@ -1,0 +1,88 @@
+django-serve-shiny documentation
+
+What is django-serve-shiny
+serve-shiny is a Django app that allows you to pass data that exists or is created within your django application to a R-Shiny application.
+The result is a dynamic R-Shiny app that works with unique user data. 
+
+How does it work?
+
+Shiny-Server is configured to serve applications within the direcotry that is set in shiny-server.conf. The open source version of shiny-server comes with no authentication in place.This means that you can not deliver dynamic content by simply creating shiny-apps with different names and URLs per user. All apps in the configured directory would be open for any user.
+In order to deliver unique content on a per user basis, django-serve-shiny utilizes the django templating system to dynamically generate R-shiny apps in the same way that it handles HTML files. After creating the Shiny app specific for the user it then writes the app to the Shiny-Server directory. The reason why it is secure after django-serve-shiny stores the app is because each user is
+associated with a 32 character hash that is used as the Shiny-App directory name. After a shiny app is generated an instance of ActiveShiny is created. This instance holds the hash as well as an exiration time. As the user has the Shiny application open another tab remains open on their browser. This tab is sending periodic Ajax requests to the Django application informing it to extend its expiration time slightly. After the user has exited the Shiny application the expiration time of the ActiveShiny instance will be reached and a periodic script that checks for expired instances will remove the created Shiny app and delete the ActiveShiny instance. The users hash is changed at the time that the Shiny application was generated, thus the URL is unique to the user each time and can not be known or accessed by other users of your site. This allows you to safely present users with Shiny applications that work on user sprecific data. 
+
+Here are the basic steps in order to see the functionality of the app.
+
+1. You must have a Shiny application running on Shiny-Server
+	Edit your Shiny application to display a message and set it with Django templating tags  {{ variable }}
+
+2. Install django-serve-shiny with pip
+	
+	'pip install django-serve-shiny'
+
+3. Add 'serve_shiny' to INSTALLED_APPS in settings.py:
+	
+	INSTALLED_APPS = [
+	...
+	'serve_shiny',
+    ]
+
+4. These are the other configurations that must be set in settings.py file:
+	
+	SHINY_SERVER_DIRECTORY:         This is the file path where Shiny-Server is configured to serve apps from 
+	
+	SHINY_TEMPLATE_FILE:            This is either a string with the full path to a Shiny app template 
+		                        or a list of strings with just the file names of Shiny templates.
+	
+	SHINY_TEMPLATE_DIRECTORY:       This setting is required if your Shiny app is multiple files and SHINY_TEMPLATE_FILE was 
+					set as a list of file names.
+	
+	SHINY_CONTEXT:                  A dictionary to use as context for Shiny apps
+	
+	SHINY_SERVER_URL                The root URL of the Shiny-Server
+	
+5. Incude the serve_shiny URLS in your project urls.py:
+	
+		path('serve_shiny/', include('serve_shiny.urls')),
+	
+6. Run `python manage.py makemigrations' and 'python manage.py migrate'
+
+7. Start the development server.
+
+8. Create a user and then visit /serve_shiny/hash/<user id>/
+
+	This will launch the shiny app. Visit the admin page and check for an instance of ActiveShiny
+	
+9. Schedule the shiny_cleanup script to remove Shiny applications when they reach expiration
+
+	"cron ........ python -m serve_shiny.shiny_cleanup /path/to/your/settings.py"
+
+
+But you said I can put user specific data in the Shiny app! How can I do that if the context is set in the settings file?
+
+This is true, you can not do exactly what we set out to do with the above instructions but it was only an introduction into how serve_shiny works.
+
+All you need to do is fill in this function
+
+def shiny_context(request):
+	...
+	...
+	...
+	return context
+
+The function must be named "shiny_context" and receive a single argument of a django HTTP request object. The function should return a valid dictionary of the context that you want to send to your Shiny application. It is important to note that any context set in the settings file will no longer be read and should be taken care of inside the function.
+
+An example that can be used as a demonstration:
+
+from django.contrib.auth.models import User
+def shiny_context(request):
+	return {"username": request.user.username}
+
+This can really live anywhere but ideally you will want to place it in a views.py or even in its own file.
+
+Add another configuration to your settings.py
+
+SHINY_CONTEXT_MODULE is set to the absolute path of the file in which the "shiny_context" function lives.
+
+Place the {{ username }} tag in your Shiny template and start the Django server. Your R-Shiny application should now be greeting your user!
+
+
