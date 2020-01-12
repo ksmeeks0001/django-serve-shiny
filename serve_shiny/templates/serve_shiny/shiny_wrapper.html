@@ -1,0 +1,22 @@
+Keep this page open while using image tools!
+{% csrf_token %}
+<script>
+	var csrf_token = document.getElementsByTagName('input')[0].value;
+	var post_data = new FormData();  //JSON.stringify({'hash': '{{ hash }}'});
+	post_data.append("hash", "{{ hash }}");
+	function stay_connected(){
+		var request = new XMLHttpRequest();
+		request.open("POST", "{% url 'connection' %}", true);
+		request.onload = function() {
+			console.log(request.responseText);
+		}
+		request.setRequestHeader("X-CSRFToken", csrf_token);
+		request.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		request.send(post_data);
+	} 
+
+	window.open('{{ shiny_url }}/{{ hash }}')
+	var test = stay_connected();
+	var response = setInterval(stay_connected, 480000);
+
+</script>

@@ -1,0 +1,4 @@
+dist/
+django_serve_shiny.egg-info/
+setup.cfg
+setup.py

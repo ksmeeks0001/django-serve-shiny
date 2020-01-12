@@ -1,0 +1,1 @@
+default_app_config = 'serve_shiny.apps.ServeShinyConfig'
